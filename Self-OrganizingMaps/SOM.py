@@ -16,6 +16,7 @@ class SOM():
         self.numClusters = numClusters
         self.weights = []
         self.learningRate = learningRate
+        self.weightsDifference = []
     
     def readFile(self):
         df = pd.read_csv(self.fileName)
@@ -73,6 +74,8 @@ class SOM():
         for row in range(self.inputVectors):
             oldWeightValue = self.weights[row][bestClusterIndex]
             newWeightValue = oldWeightValue + self.learningRate*(inputVector[row]-oldWeightValue)
+            difference = newWeightValue-oldWeightValue
+            self.weightsDifference.append(difference)
             self.weights[row][bestClusterIndex] = newWeightValue
         
 
@@ -87,8 +90,13 @@ def SelfOrganizingMaps(filename, numClusters, learningRate, iterations):
         for x in s.data:
             bestMatchingIndex = s.selectBestCluster(x)
             s.updateWeights(x, bestMatchingIndex)
-        s.learningRate = 0.5*s.learningRate
-        print(s.weights)
+            
+        if (all(x <= 0.00000000001 for x in s.weightsDifference)):
+            break
+        else:
+            s.learningRate = 0.5*s.learningRate
+            print(s.weights)
+            s.weightsDifference = []
     
     print("FINAL WEIGHTS:")
     print(s.weights)
