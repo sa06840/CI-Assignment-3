@@ -7,7 +7,8 @@ class GridWorld:
         # Define the locations of the obstacles and rewards
         # Define the initial value of all states
         self.size = size
-        self.obstacles = [(2, 4), (2, 5), (2, 6), (2, 7), (2, 9),
+        self.obstacles = [(0, 2),
+                          (2, 4), (2, 5), (2, 6), (2, 7), (2, 9),
                           (6, 2), (7, 2), (8, 2), (9, 2), (7, 3),
                           (7, 6), (7, 6), (7, 8),
                           (9, 3), (9, 4), (9, 5), (9, 6), (9, 7), (9, 8)] 
@@ -39,7 +40,7 @@ class GridWorld:
         if (i, j) in self.obstacles:
             # Stay in the current state and get a negative reward
             reward = -100
-            # next_state = state
+            next_state = state
         else:
             # Check if the new state is a reward
             if (i, j) in self.rewards:
@@ -61,14 +62,21 @@ class GridWorld:
         # calculates exp_sum and stores values of current exp
         for action in self.actions:
             next_state,reward  = self.get_next_state_and_reward(state, action)
-            exp_sum += np.exp(Q[next_state] / self.temperature)
-            exp_current.append(np.exp(Q[next_state] / self.temperature))
-            
+            if list(next_state) == state:
+                exp_current.append(0)
+            else:
+                exp_sum += np.exp(Q[next_state] / self.temperature)
+                exp_current.append(np.exp(Q[next_state] / self.temperature))
+        
+        # print(exp_current)
+        # print(exp_sum)
+
         #normalized current exp values
         scaled_exps =[]
         for value in exp_current:
             scaled_exps.append(value/exp_sum)
 
+        print(scaled_exps)
         #Defines ranges for fitness proportional
         ranges =[]
         pointer = 0
@@ -87,6 +95,7 @@ class GridWorld:
                 p1Index = index
                 break
         #Outputs action
+        print(self.actions[p1Index])
         return(self.actions[p1Index])
 
         # for action in self.actions:
@@ -104,13 +113,22 @@ class GridWorld:
 
     def update(self, state, reward, next_state):
         future_rewards=[]
+        print(next_state)
         for action in self.actions:
-            new_state, reward=self.get_next_state_and_reward(next_state, action)
-            future_rewards.append(reward)
-
+            new_state, new_reward=self.get_next_state_and_reward(next_state, action)
+            print("ACTION: ", action, "REWARD: ", new_reward)
+            future_rewards.append(new_reward)
+        print(future_rewards)
         max_value = max(future_rewards)
-        # print(max_value)
-        G1.Q_table[state] += self.learningRate * (reward + (self.discountFactor * max_value) - G1.Q_table[state])
+        print("MAX VLAUE: ",max_value)
+        print("CURRENT STATE: ",state)
+        print("CUREENT VALUE: ",self.Q_table[state[0],state[1]])
+        print("REWARD: ", reward)
+        print((reward + (self.discountFactor * max_value) - self.Q_table[state[0],state[1]]))
+        print()
+        value=self.Q_table[state[0],state[1]] +  self.learningRate * (reward + (self.discountFactor * max_value) - self.Q_table[state[0],state[1]])
+        print(value)
+        self.Q_table[state[0],state[1]] += self.learningRate * (reward + (self.discountFactor * max_value) - self.Q_table[state[0],state[1]])
 
 
 # Q[current_state, current_action] = Q[current_state, current_action] + alpha * (reward + gamma * np.max(Q[next_state, :]) - Q[current_state, current_action])
@@ -118,20 +136,27 @@ class GridWorld:
 
 # Define the agent's parameters
 NUM_EPISODES = 1000
-MAX_STEPS= 50
+MAX_STEPS= 70
 
 
 # Define the  Grid's parameters (size, learning rate and discount factor, temperature)
 SIZE =10
 ALPHA = 0.5
 GAMMA = 0.9
-TEMPERATURE = 0.3
+TEMPERATURE = 0.5
 
 #TESTING
 G1 = GridWorld(ALPHA, GAMMA, SIZE, TEMPERATURE)
 # D1 = DrawGrid(G1.obstacles, G1.rewards, SIZE, SIZE )
-# G1.boltzmann_policy([0,0],G1.Q_table, 0.5)
-# G1.update([7,9], -1, [8,9])
+
+# action = G1.boltzmann_policy([0,0],G1.Q_table)
+# next_state, reward = G1.get_next_state_and_reward([0,0], "RIGHT")
+# print("NEXT STATE: ", next_state, "   REWARD: ", reward)
+# G1.update([0,0], reward, next_state)
+
+# next_state, reward = G1.get_next_state_and_reward([0,1], "RIGHT")
+# print("NEXT STATE: ", next_state, "   REWARD: ", reward)
+# G1.update([0,1], reward, next_state)
 
 
 # Define the main function for episodic learning
@@ -179,6 +204,7 @@ def run_episodes(num_episodes, max_steps):
     print("FINAL Q_TABLE")
     for row in G1.Q_table:
         print(row)
+        print()
     # print(G1.Q_table)
 
 run_episodes(NUM_EPISODES, MAX_STEPS)
