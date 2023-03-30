@@ -17,11 +17,11 @@ class DrawGrid:
         self.GRID_HEIGHT = height
         # Define the size of each box in the grid
         self.BOX_SIZE = 40
-
+        
         self.obstacles = obstacles
         self.rewards = rewards
 
-
+        # Used to fit arrow images within grid boxes
         self.constant1 = 2
         self.constant2 = 3
         self.load()
@@ -38,27 +38,37 @@ class DrawGrid:
         self.uparrow = pygame.image.load('uparrow.png')
         self.uparrow = pygame.transform.scale(self.uparrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
         self.downarrow = pygame.image.load('downarrow.png')
-        self.downarrow = pygame.transform.scale(self.uparrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
+        self.downarrow = pygame.transform.scale(self.downarrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
         self.rightarrow = pygame.image.load('rightarrow.png')
-        self.rightarrow = pygame.transform.scale(self.uparrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
+        self.rightarrow = pygame.transform.scale(self.rightarrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
         self.leftarrow = pygame.image.load('leftarrow.png')
-        self.leftarrow = pygame.transform.scale(self.uparrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
+        self.leftarrow = pygame.transform.scale(self.leftarrow, (self.BOX_SIZE- self.constant2, self.BOX_SIZE- self.constant2))
         
-        self.drawGrid()
+        self.drawGrid("DOWN")
     
-    def drawImage(self, row,col):
+    def drawImage(self, row,col, arrowtype):
         # Draw the uparrow on top of the grid in the box at position (2, 2)
-        # print(arrowtype)
-        x = row * self.BOX_SIZE
-        y = col * self.BOX_SIZE
-        self.screen.blit(self.uparrow, (x +self.constant1, y+self.constant1))
+        x = col * self.BOX_SIZE
+        y = row * self.BOX_SIZE
+        print(arrowtype)
 
+        # self.screen.blit(self.downarrow, (x +self.constant1, y+self.constant1))
 
-    def drawGrid(self):
+        if arrowtype == "UP":
+            self.screen.blit(self.uparrow, (x +self.constant1, y+self.constant1))
+        elif arrowtype == "DOWN":
+            self.screen.blit(self.downarrow, (x +self.constant1, y+self.constant1))
+        elif arrowtype == "LEFT":
+            self.screen.blit(self.leftarrow, (x +self.constant1, y+self.constant1))
+            print("here")
+        elif arrowtype == "RIGHT":
+            self.screen.blit(self.rightarrow, (x +self.constant1, y+self.constant1))    
+
+    def drawGrid(self, arrowtype):
         # Draw the grid of boxes on top of the uparrow
         for row in range(self.GRID_HEIGHT):
             for col in range(self.GRID_WIDTH):
-                
+                # print(row,col)
                 x = col * self.BOX_SIZE
                 y = row * self.BOX_SIZE
                 pygame.draw.rect(self.screen, self.BLACK, [x, y, self.BOX_SIZE, self.BOX_SIZE], 1)
@@ -66,10 +76,10 @@ class DrawGrid:
                     pygame.draw.rect(self.screen, self.RED, [x+1, y+1, self.BOX_SIZE-2, self.BOX_SIZE-2])
                 elif (row,col) in  self.rewards:
                     pygame.draw.rect(self.screen, self.GREEN, [x+1, y+1, self.BOX_SIZE-2, self.BOX_SIZE-2])
-                # elif ((row, col) not in self.obstacles) and ((row,col) not in self.rewards):
-                    # print(row, col)
-                    # self.drawImage(row, col)
-
+                else:
+                    self.drawImage(row, col, arrowtype)
+                    
+               
         self.others()
 
     def others(self):
