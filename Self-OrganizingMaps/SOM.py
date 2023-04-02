@@ -1,12 +1,15 @@
-from math import ceil, sqrt
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 import random
+from math import ceil, exp, log, sqrt
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 
 
 class SOM():
 
-    def __init__(self, filename, learningRate) -> None:
+    def __init__(self, filename, learningRate, iterations) -> None:
         self.fileName = filename
         self.readFile()
         self.replaceNan()
@@ -14,13 +17,15 @@ class SOM():
         self.oneHotEncoding()
         self.scaleData()
         self.data = self.df.values.tolist()
-        # print(self.data)
         self.inputVectors = len(self.data[0])
         self.getGridSize()
         self.weights = []
         self.learningRate = learningRate
         self.weightsDifference = []
-    
+        self.radius = self.gridSize//3
+        self.timeConstant = log(iterations/self.radius)
+        self.IDstoColor = []
+
     def readFile(self):
         df = pd.read_csv(self.fileName)
         self.df = df
@@ -32,6 +37,12 @@ class SOM():
             columnName = self.df.columns[i]
             if numberOfUnique[i] == len(self.df) and not(self.df[columnName].dtype.kind in 'iufcb'):
                 uniqueColumns.append(columnName)
+        for columnName in uniqueColumns:
+            name = str.lower(columnName)
+            if "country" in name or "countries" in name:
+                iDcolumn = columnName
+                break
+        self.uniquesIDs = self.df[iDcolumn].values.tolist() 
         self.df.drop(uniqueColumns, axis=1, inplace=True)
 
     def replaceNan(self):
@@ -39,15 +50,17 @@ class SOM():
         for columnName in columnsWithNan:
             avg = self.df[columnName].mean()
             self.df[columnName] = self.df[columnName].fillna(avg)
-
-        # self.df.to_csv("newfile.csv", index=False)
           
     def oneHotEncoding(self):
         categoricalColumns = self.df.select_dtypes(include=["object"])
         categoricalColumnsLst = []
         for col in categoricalColumns:
-            categoricalColumnsLst.append(col)
-        self.df = pd.get_dummies(self.df, columns = categoricalColumnsLst)
+            if "continent" in str.lower(col):
+                self.df.drop([col], axis = 1, inplace=True)
+            else:
+                categoricalColumnsLst.append(col)
+        if len(categoricalColumnsLst) != 0:
+            self.df = pd.get_dummies(self.df, columns = categoricalColumnsLst)
 
     def getGridSize(self):
         self.numClusters = 5*(sqrt((len(self.df))))
@@ -69,125 +82,150 @@ class SOM():
                 row.append(weights)
             self.weights.append(row)
 
-        # print(self.weights)
-        # print(len(self.weights))
-        # for row in range(self.inputVectors):
-        #     weights = []
-        #     for column in range(self.numClusters):
-        #         weight = random.random()
-        #         weights.append(weight)
-            
-        #     self.weights.append(weights)
-        # # print(self.weights)
-
     def selectBestCluster(self, inputVector):
-        # distances = []
         minimum = [0,0]
         minimumDistance = 10000000000000
-        for y in range(self.gridSize):
-            for x in range(self.gridSize):
-                weightList = self.weights[y][x]
+        for row in range(self.gridSize):
+            for column in range(self.gridSize):
+                weightList = self.weights[row][column]
                 distance = 0
                 for index in range(self.inputVectors):
                     value = (inputVector[index] - weightList[index])**2
                     distance += value
                 if (distance < minimumDistance):
-                    minimum[0] = y
-                    minimum[1] = x
+                    minimum[0] = row
+                    minimum[1] = column
                     minimumDistance = distance
-
         return minimum
     
-                # distances.append(distance)
+    def updateRadius(self, iterationNumber):
+        newRadius = self.radius * exp(-(iterationNumber/self.timeConstant))
+        self.radius = newRadius
 
-        # distances = []
-        # for column in range(self.numClusters):
-        #     summation = 0
-        #     for row in range(self.inputVectors):
-        #         value = (inputVector[row] - self.weights[row][column])**2
-        #         summation += value
-        #     distances.append(summation)
-        # print(distances)
-        # return distances
+    def neighbourhoodFunction(self, distance):
+        num = distance**2
+        den = 2*(self.radius**2)
+        value = exp(-(num/den))
+        return value
 
-    # def selectBestCluster(self, inputVector):
-    #     distances = self.calculateDistances(inputVector)
-    #     minDistance = min(distances)
-    #     bestClusterIndex = distances.index(minDistance)
-    #     # print(bestClusterIndex)
-    #     return bestClusterIndex
-
-
-# IMPLEMENT NEIGHBOURHOOD FUNCTION
+    def getEuclideanDistance(self, bestClusterIndex, weightListCoordinates):
+        value = (weightListCoordinates[0]-bestClusterIndex[0])**2 + (weightListCoordinates[1]-bestClusterIndex[1])**2
+        distance = sqrt(value)
+        return distance
 
     def updateWeights(self, inputVector, bestClusterIndex):
-        # y = bestClusterIndex//self.gridSize    #row
-        # x = bestClusterIndex % self.gridSize   #column
-        y = bestClusterIndex[0]
-        x = bestClusterIndex[1]
-        for weightIndex in range(self.inputVectors):
-            oldWeightValue = self.weights[y][x][weightIndex]
-            newWeightValue = oldWeightValue + self.learningRate*(inputVector[weightIndex]-oldWeightValue)
-            difference = newWeightValue-oldWeightValue
-            self.weightsDifference.append(difference)
-            self.weights[y][x][weightIndex] = newWeightValue
+        rowBestCluster = bestClusterIndex[0]
+        columnBestCluster = bestClusterIndex[1]
 
-        # for row in range(self.inputVectors):
-        #     oldWeightValue = self.weights[row][bestClusterIndex]
-        #     newWeightValue = oldWeightValue + self.learningRate*(inputVector[row]-oldWeightValue)
-        #     difference = newWeightValue-oldWeightValue
-        #     self.weightsDifference.append(difference)
-        #     self.weights[row][bestClusterIndex] = newWeightValue
+        for row in range(self.gridSize):
+            for column in range(self.gridSize):
+                weightList = self.weights[row][column]
+                if(row == rowBestCluster and column == columnBestCluster):
+                    for weightIndex in range(self.inputVectors):
+                        oldWeightValue = weightList[weightIndex]
+                        newWeightValue = oldWeightValue + self.learningRate*(inputVector[weightIndex]-oldWeightValue)
+                        difference = abs(newWeightValue-oldWeightValue)
+                        self.weightsDifference.append(difference)
+                        weightList[weightIndex] = newWeightValue
+                    self.weights[row][column] = weightList
+
+                else:
+                    weightListCoordinates = [row,column]
+                    distance = self.getEuclideanDistance(bestClusterIndex, weightListCoordinates)
+                    if distance <= self.radius:
+                        neighbourhoodValue = self.neighbourhoodFunction(distance)
+                        for weightIndex in range(self.inputVectors):
+                            oldWeightValue = weightList[weightIndex]
+                            newWeightValue = oldWeightValue + self.learningRate*neighbourhoodValue*(inputVector[weightIndex]-oldWeightValue)
+                            difference = abs(newWeightValue-oldWeightValue)
+                            self.weightsDifference.append(difference)
+                            weightList[weightIndex] = newWeightValue
+                        self.weights[row][column] = weightList
+
+    def assignCoordinatesID(self):
+        xIndex = 0
+        for x in self.data:
+            bestClusterCoordinates = self.selectBestCluster(x)
+            iD = self.uniquesIDs[xIndex]
+            self.IDstoColor.append([iD, bestClusterCoordinates])
+            xIndex+=1
+
+    def getColorGridfromWeights(self):
+        figure = plt.figure(figsize=(self.gridSize, self.gridSize))
+        ax = figure.add_subplot(111, aspect='equal')
+        ax.set_xlim((0, self.gridSize))
+        ax.set_ylim((0, self.gridSize))
+        for row in range(self.gridSize):
+            for column in range(self.gridSize):
+                rgb = [0, 0, 0] 
+                weights = self.weights[row][column]
+                for i in range(len(weights)):
+                    if i % 3 == 0: 
+                        rgb[0] = rgb[0] + weights[i]
+                    elif i % 3 == 1: 
+                        rgb[1] = rgb[1] + weights[i]
+                    elif i % 3 == 2: 
+                        rgb[2] = rgb[2] + weights[i]
+              
+                sumRGB = rgb[0] + rgb[1] + rgb[2]
+                for i in range(len(rgb)):
+                    rgb[i] = rgb[i]/sumRGB
+                    
+                ax.add_patch(plt.Rectangle((row, column), 1, 1, linewidth=0.5, antialiased=True, facecolor=(rgb[0], rgb[1], rgb[2], 1), edgecolor='black'))
+                coordinates = [row, column]
+                colour = [rgb[0], rgb[1], rgb[2], 1]
+                label = ""
+                for lst in self.IDstoColor:
+                    if lst[1] == coordinates:
+                        label = label + lst[0] + "\n"
+                        lst.append(colour)
+                ax.text(row+0.5, column+0.5, label, ha='center', va='center', color="white", fontsize=5)
+        plt.show()
+                    
+    def getWorldMap(self):
+        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+        fig, ax = plt.subplots(figsize=(10, 10))
+        world.plot(ax=ax, facecolor='lightgray', edgecolor='black')
+        for lst in self.IDstoColor:
+            iD = lst[0]
+            color = lst[2]
+            if iD in world["name"].tolist():
+                world[world.name == iD].plot(color=color, ax=ax)
+        plt.show()
+
         
 
 
-
 def SelfOrganizingMaps(filename, learningRate, iterations):
-    s = SOM(filename, learningRate)
+    s = SOM(filename, learningRate, iterations)
     s.initializeWeights()
 
-    for iteration in range(iterations):
-        print("********** Iteration Number = " + str(iteration+1) + " **********")
+    for iteration in range(1,iterations+1):
+        print("********** Iteration Number = " + str(iteration) + " **********")
         for x in s.data:
             bestMatchingIndex = s.selectBestCluster(x)
             s.updateWeights(x, bestMatchingIndex)
+        print(bestMatchingIndex)
             
-        if (all(x <= 0.00000000001 for x in s.weightsDifference)):
+        if (all(w <= 0.00000000001 for w in s.weightsDifference)):
             break
         else:
             s.learningRate = 0.5*s.learningRate
-            print(s.weights)
             s.weightsDifference = []
+            if (iteration%10 == 0):
+                s.updateRadius(iteration)
     
-    print("FINAL WEIGHTS:")
-    print(s.weights)
+    s.assignCoordinatesID()
+    s.getColorGridfromWeights()
+    s.getWorldMap()
 
 
-filename = 'Self-OrganizingMaps/worldometer_coronavirus_summary_data.csv'
+# filename  = 'Self-OrganizingMaps/datasets/worldCoronaVirusData.csv'
+# filename  = 'Self-OrganizingMaps/datasets/worldEnvironmentalData.csv'
+# filename  = 'Self-OrganizingMaps/datasets/worldHappinessData.csv'
+# filename  = 'Self-OrganizingMaps/datasets/worldPopulationData.csv'
+filename  = 'Self-OrganizingMaps/datasets/worldVaccinationData.csv'
 learningRate = 0.5
 iterations = 100
 
 SelfOrganizingMaps(filename, learningRate, iterations)
-
-
-# filename = 'Self-OrganizingMaps/worldometer_coronavirus_summary_data.csv'
-# numClusters = 2
-# inputVector = [0.0020963644071506204,0.007489443770728929,0.0019951958144534114,0.004823212496814616,0.13502464831068897,0.006058385453058164,0.034425319267073845,0.000930515331706835,0.0008408518256701044,0.028176465530080016,0.0,1.0,0.0,0.0,0.0,0.0]
-# learningRate = 0.5
-# s = SOM(filename, learningRate)
-# s.initializeWeights()
-# s.calculateDistances(inputVector)
-# b = s.selectBestCluster(inputVector)
-# s.updateWeights(inputVector,b)
-# print(s.weights)
-
-
-
-
-
-
-
-
-
-
-
