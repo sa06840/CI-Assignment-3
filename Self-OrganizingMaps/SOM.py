@@ -237,6 +237,7 @@ def SelfOrganizingMaps(filename, learningRate, iterations):
     s.getColorGridfromWeights()
     s.getWorldMap()
 
+
 # un-comment the dataset which you want to use
 filename  = 'Self-OrganizingMaps/datasets/worldPopulationData.csv'
 # filename  = 'Self-OrganizingMaps/datasets/worldCoronaVirusData.csv'
