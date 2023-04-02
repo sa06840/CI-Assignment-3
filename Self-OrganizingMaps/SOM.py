@@ -25,7 +25,6 @@ class SOM():
         self.weightsDifference = []
         self.radius = self.gridSize//3
         self.timeConstant = log(iterations/self.radius)
-        self.IDstoColor = []
 
     # reads the csv and stores the data in a dataframe
     def readFile(self):
@@ -157,6 +156,7 @@ class SOM():
 
     # assigns every ID its corresponding neuron that it is closest to after all the weights have been optimised 
     def assignCoordinatesID(self):
+        self.IDstoColor = []
         xIndex = 0
         for x in self.data:
             bestClusterCoordinates = self.selectBestCluster(x)
@@ -222,24 +222,26 @@ def SelfOrganizingMaps(filename, learningRate, iterations):
             bestMatchingIndex = s.selectBestCluster(x)
             s.updateWeights(x, bestMatchingIndex)
             
-        if (all(w <= 0.00000000001 for w in s.weightsDifference)):
+        if (all(w <= 0.0000001 for w in s.weightsDifference)):
             break
         else:
             s.learningRate = 0.5*s.learningRate
             s.weightsDifference = []
             if (iteration%10 == 0):
                 s.updateRadius(iteration)
+            if (iteration%5 == 1):
+                s.assignCoordinatesID()
+                s.getColorGridfromWeights()
     
     s.assignCoordinatesID()
     s.getColorGridfromWeights()
     s.getWorldMap()
 
 # un-comment the dataset which you want to use
+filename  = 'Self-OrganizingMaps/datasets/worldPopulationData.csv'
 # filename  = 'Self-OrganizingMaps/datasets/worldCoronaVirusData.csv'
-# filename  = 'Self-OrganizingMaps/datasets/worldEnvironmentalData.csv'
 # filename  = 'Self-OrganizingMaps/datasets/worldHappinessData.csv'
-# filename  = 'Self-OrganizingMaps/datasets/worldPopulationData.csv'
-filename  = 'Self-OrganizingMaps/datasets/worldVaccinationData.csv'
+# filename  = 'Self-OrganizingMaps/datasets/worldVaccinationData.csv'
 
 learningRate = 0.5
 iterations = 100
